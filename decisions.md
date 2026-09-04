@@ -65,3 +65,9 @@ DECISIONS.md entry: Added GET /api/watchlist — was missing despite being descr
 DECISIONS.md entry: Verified POST /api/watchlist end-to-end against live Neon DB via authenticated session — real insert, real cursor row, real position auto-increment logic.
 
 DECISIONS.md entry: Verified optimistic locking end-to-end — PATCH with correct version succeeds and increments version; PATCH with stale version correctly rejected with 409, proving the WHERE version=:expected guard actually prevents concurrent overwrites, not just a schema column nobody enforces.
+
+DECISIONS.md entry: Watchlist pin/remove buttons use plain JS fetch() against the existing JSON API (not a second HTML-returning endpoint) — avoids duplicating tested PATCH/DELETE logic just to satisfy HTMX's HTML-swap expectation; DOM update (remove row / re-sort/reorder pinned) handled manually in a small JS function, same pattern already used for auth-response handling.
+
+DECISIONS.md entry: Watchlist row markup exists in two places (Jinja initial render + JS renderItemHtml for post-pin refresh) — accepted duplication; alternative was adding HTML-fragment endpoints that would duplicate already-tested JSON logic instead.
+
+DECISIONS.md entry: DELETE returning 404 is treated as success in the UI (row removed from DOM regardless) — a 404 here means the end state the user wants was already true, likely from a second tab; surfacing it as an error would be misleading.

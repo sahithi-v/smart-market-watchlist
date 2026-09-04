@@ -2,8 +2,108 @@
 {% block title %}Dashboard — Smart Watchlist{% endblock %}
 
 {% block content %}
-<div class="p-8">
-  <h1 class="font-display text-2xl text-ink">Welcome, {{ user.name }}</h1>
-  <p class="text-slatemoss text-sm mt-2">Dashboard layout coming next.</p>
+<div class="min-h-screen flex">
+  <aside class="w-[272px] shrink-0 border-r border-fog bg-chalk p-4">
+    <h2 class="font-display text-lg text-ink mb-4">Watchlist</h2>
+    <ul id="watchlist-list" class="space-y-1">
+      {% for item in watchlist %}
+      <li class="flex items-center justify-between py-2 border-b border-fog"
+          data-id="{{ item.id }}" data-version="{{ item.version }}" data-pinned="{{ 'true' if item.pinned else 'false' }}">
+        <span class="text-ink text-sm font-medium truncate" title="{{ item.name }}">{{ item.ticker }}</span>
+        <span class="flex items-center gap-2">
+          <button onclick="pinItem({{ item.id }})"
+            class="{{ 'text-brass' if item.pinned else 'text-fog hover:text-brass' }}"
+            title="{{ 'Unpin' if item.pinned else 'Pin' }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3a1 1 0 0 1 1 1v6.5l3 3.5v2H13v5l-1 1-1-1v-5H4v-2l3-3.5V4a1 1 0 0 1 1-1h8z"/></svg>
+          </button>
+          <button onclick="removeItem({{ item.id }})"
+            class="text-xs text-slatemoss hover:text-oxblood" title="Remove">✕</button>
+        </span>
+      </li>
+      {% else %}
+      <li class="text-slatemoss text-sm">No symbols yet.</li>
+      {% endfor %}
+    </ul>
+  </aside>
+
+  <main class="flex-1 p-8">
+    <h1 class="font-display text-2xl text-ink">Welcome, {{ user.name }}</h1>
+    <p class="text-slatemoss text-sm mt-2">Digest coming next.</p>
+  </main>
 </div>
+
+<script>
+  function checkEmptyState() {
+    const list = document.getElementById('watchlist-list');
+    if (list.querySelectorAll('li[data-id]').length === 0) {
+      list.innerHTML = '<li class="text-slatemoss text-sm">No symbols yet.</li>';
+    }
+  }
+
+  async function removeItem(id) {
+    if (!confirm('Remove this symbol from your watchlist?')) return;
+    const li = document.querySelector(`li[data-id="${id}"]`);
+    try {
+      const res = await fetch(`/api/watchlist/${id}`, { method: 'DELETE' });
+      if (res.status === 204 || res.status === 404) {
+        li?.remove();
+        checkEmptyState();
+      } else {
+        alert('Could not remove — please try again.');
+      }
+    } catch (e) {
+      alert('Network error — please try again.');
+    }
+  }
+
+  function renderItemHtml(item) {
+    const pinClass = item.pinned ? 'text-brass' : 'text-fog hover:text-brass';
+    const pinTitle = item.pinned ? 'Unpin' : 'Pin';
+    return `<li class="flex items-center justify-between py-2 border-b border-fog"
+      data-id="${item.id}" data-version="${item.version}" data-pinned="${item.pinned}">
+      <span class="text-ink text-sm font-medium truncate" title="${item.name}">${item.ticker}</span>
+      <span class="flex items-center gap-2">
+        <button onclick="pinItem(${item.id})" class="${pinClass}" title="${pinTitle}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3a1 1 0 0 1 1 1v6.5l3 3.5v2H13v5l-1 1-1-1v-5H4v-2l3-3.5V4a1 1 0 0 1 1-1h8z"/></svg>
+        </button>
+        <button onclick="removeItem(${item.id})" class="text-xs text-slatemoss hover:text-oxblood" title="Remove">✕</button>
+      </span></li>`;
+  }
+
+  async function refreshWatchlist() {
+    const res = await fetch('/api/watchlist');
+    if (!res.ok) return;
+    const items = await res.json();
+    const list = document.getElementById('watchlist-list');
+    list.innerHTML = items.length === 0
+      ? '<li class="text-slatemoss text-sm">No symbols yet.</li>'
+      : items.map(renderItemHtml).join('');
+  }
+
+  async function pinItem(id) {
+    const li = document.querySelector(`li[data-id="${id}"]`);
+    const version = parseInt(li.dataset.version, 10);
+    const currentlyPinned = li.dataset.pinned === 'true';
+    try {
+      const res = await fetch(`/api/watchlist/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pinned: !currentlyPinned, version })
+      });
+      if (res.status === 409) {
+        alert('This item changed elsewhere — refreshing your watchlist.');
+        await refreshWatchlist();
+      } else if (res.status === 404) {
+        li.remove();
+        checkEmptyState();
+      } else if (res.ok) {
+        await refreshWatchlist();
+      } else {
+        alert('Could not update — please try again.');
+      }
+    } catch (e) {
+      alert('Network error — please try again.');
+    }
+  }
+</script>
 {% endblock %}
