@@ -10,3 +10,4 @@ pytest
 bcrypt
 itsdangerous
 email-validator
+jinja2

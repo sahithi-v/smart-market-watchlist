@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Smart Watchlist{% endblock %}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mist: '#F5F6F3', chalk: '#FBFBF9', ink: '#16211E',
+            slatemoss: '#5B6560', deepmoss: '#3D5A47',
+            brass: '#B8863B', oxblood: '#7A3B3B', fog: '#DEDFDC',
+          },
+          fontFamily: {
+            display: ['Fraunces', 'serif'],
+            sans: ['Public Sans', 'sans-serif'],
+            mono: ['IBM Plex Mono', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <script src="https://unpkg.com/htmx-ext-json-enc@2.0.1/json-enc.js"></script>
+</head>
+<body class="bg-mist text-ink font-sans antialiased" hx-ext="json-enc">
+  {% block content %}{% endblock %}
+</body>
+</html>

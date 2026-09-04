@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Smart Watchlist{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm">
+    <h1 class="font-display text-3xl text-ink mb-1">Smart Watchlist</h1>
+
+    <div class="flex gap-4 mb-6 mt-2">
+      <button id="tab-login" onclick="showForm('login')"
+        class="text-sm font-medium text-ink border-b-2 border-deepmoss pb-1">Sign in</button>
+      <button id="tab-signup" onclick="showForm('signup')"
+        class="text-sm font-medium text-slatemoss border-b-2 border-transparent pb-1">Create account</button>
+    </div>
+
+    <p id="form-error" class="hidden text-oxblood text-sm mb-4"></p>
+
+    <form id="form-login"
+      hx-post="/api/auth/login"
+      hx-swap="none"
+      hx-on::after-request="handleAuthResponse(event)"
+      class="bg-chalk border border-fog rounded-sm p-6 space-y-4"
+    >
+      <div>
+        <label class="text-sm text-slatemoss block mb-1">Email</label>
+        <input type="email" name="email" required
+          class="w-full border border-fog rounded-sm px-3 py-2 text-ink bg-mist focus:outline-none focus:border-deepmoss">
+      </div>
+      <div>
+        <label class="text-sm text-slatemoss block mb-1">Password</label>
+        <input type="password" name="password" required
+          class="w-full border border-fog rounded-sm px-3 py-2 text-ink bg-mist focus:outline-none focus:border-deepmoss">
+      </div>
+      <button type="submit"
+        class="w-full bg-deepmoss text-chalk py-2 rounded-sm font-medium hover:opacity-90">
+        Sign in
+      </button>
+    </form>
+
+    <form id="form-signup"
+      hx-post="/api/auth/signup"
+      hx-swap="none"
+      hx-on::after-request="handleAuthResponse(event)"
+      class="hidden bg-chalk border border-fog rounded-sm p-6 space-y-4"
+    >
+      <div>
+        <label class="text-sm text-slatemoss block mb-1">Name</label>
+        <input type="text" name="name" required
+          class="w-full border border-fog rounded-sm px-3 py-2 text-ink bg-mist focus:outline-none focus:border-deepmoss">
+      </div>
+      <div>
+        <label class="text-sm text-slatemoss block mb-1">Email</label>
+        <input type="email" name="email" required
+          class="w-full border border-fog rounded-sm px-3 py-2 text-ink bg-mist focus:outline-none focus:border-deepmoss">
+      </div>
+      <div>
+        <label class="text-sm text-slatemoss block mb-1">Password</label>
+        <input type="password" name="password" required minlength="8"
+          class="w-full border border-fog rounded-sm px-3 py-2 text-ink bg-mist focus:outline-none focus:border-deepmoss">
+      </div>
+      <button type="submit"
+        class="w-full bg-deepmoss text-chalk py-2 rounded-sm font-medium hover:opacity-90">
+        Create account
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+  function showForm(which) {
+    document.getElementById('form-login').classList.toggle('hidden', which !== 'login');
+    document.getElementById('form-signup').classList.toggle('hidden', which !== 'signup');
+    document.getElementById('tab-login').classList.toggle('text-ink', which === 'login');
+    document.getElementById('tab-login').classList.toggle('border-deepmoss', which === 'login');
+    document.getElementById('tab-login').classList.toggle('text-slatemoss', which !== 'login');
+    document.getElementById('tab-login').classList.toggle('border-transparent', which !== 'login');
+    document.getElementById('tab-signup').classList.toggle('text-ink', which === 'signup');
+    document.getElementById('tab-signup').classList.toggle('border-deepmoss', which === 'signup');
+    document.getElementById('tab-signup').classList.toggle('text-slatemoss', which !== 'signup');
+    document.getElementById('tab-signup').classList.toggle('border-transparent', which !== 'signup');
+    document.getElementById('form-error').classList.add('hidden');
+  }
+
+  function handleAuthResponse(event) {
+    const errorEl = document.getElementById('form-error');
+    if (event.detail.successful) {
+      window.location.href = '/dashboard';
+    } else {
+      let message = 'Something went wrong. Please try again.';
+      try {
+        const body = JSON.parse(event.detail.xhr.responseText);
+        if (typeof body.detail === 'string') {
+          message = body.detail;
+        } else if (Array.isArray(body.detail) && body.detail[0]?.msg) {
+          message = body.detail[0].msg;
+        }
+      } catch (e) {}
+      errorEl.textContent = message;
+      errorEl.classList.remove('hidden');
+    }
+  }
+</script>
+{% endblock %}

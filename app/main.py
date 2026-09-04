@@ -12,6 +12,9 @@ from app.auth import router as auth_router
 from app.watchlist import router as watchlist_router
 from app.signal_engine import run_signal_engine
 from app.digest import router as digest_router
+from app.events import router as events_router
+from app.pages import router as pages_router
+
 scheduler = BackgroundScheduler()
 
 
@@ -30,7 +33,8 @@ app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 app.include_router(auth_router)
 app.include_router(watchlist_router)
 app.include_router(digest_router)
-
+app.include_router(events_router)
+app.include_router(pages_router)
 
 @app.get("/api/health")
 def health():

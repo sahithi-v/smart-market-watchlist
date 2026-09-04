@@ -23,6 +23,7 @@ def build_symbol_context(db) -> dict[str, dict]:
                 "last_close_paise": last_bar.close_paise,
                 "mean_return": float(stats.mean_return),
                 "daily_stddev": float(stats.stddev_return),
+                "avg_volume_20d": float(stats.avg_volume_20d),
             }
     return context
 
@@ -30,8 +31,9 @@ def build_symbol_context(db) -> dict[str, dict]:
 def get_provider(db):
     global _provider
     if _provider is None:
-        seed_data = build_seed_data(db)
-        _provider = CircuitBreakerProvider(
+
+            seed_data = build_symbol_context(db)        
+            _provider = CircuitBreakerProvider(
             primary=YFinanceProvider(),
             fallback=SimulatedProvider(seed_data=seed_data),
         )
