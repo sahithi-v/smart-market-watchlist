@@ -90,7 +90,7 @@
 
       <div id="drawer-news">
         <h4 class="text-sm text-ink font-medium mb-2">Read more</h4>
-        <p class="text-xs text-slatemoss" id="drawer-news-content">News coming next.</p>
+        <div class="text-xs text-slatemoss" id="drawer-news-content">News coming next.</div>
       </div>
     </div>
   </aside>
@@ -116,6 +116,25 @@
     }
 
     document.getElementById('layout').style.gridTemplateColumns = '272px 1fr 360px';
+    loadNews(item.ticker);
+  }
+
+  async function loadNews(ticker) {
+    const newsEl = document.getElementById('drawer-news-content');
+    newsEl.textContent = 'Loading…';
+    try {
+      const res = await fetch(`/api/news/${ticker}`);
+      const data = await res.json();
+      if (data.unavailable || data.headlines.length === 0) {
+        newsEl.textContent = 'No recent headlines.';
+        return;
+      }
+      newsEl.innerHTML = data.headlines.map(h =>
+        `<a href="${h.url}" target="_blank" rel="noopener" class="block text-deepmoss hover:underline mb-2">${h.title}</a><span class="text-slatemoss text-xs block mb-3">${h.source}</span>`
+      ).join('');
+    } catch (e) {
+      newsEl.textContent = 'No recent headlines.';
+    }
   }
 
   function closeDrawer() {

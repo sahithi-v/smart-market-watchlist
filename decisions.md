@@ -77,3 +77,7 @@ DECISIONS.md entry: Digest item formatting (paise→₹ conversion, relative "Xm
 DECISIONS.md entry: Naive-comparison ranking (the "how would this look under the obvious approach" toggle) sorts by abs(sigma) rather than raw % price change — VOLUME_SPIKE events have no price-change field, and sigma is already the app's documented cross-detector magnitude proxy. Reuses an existing named simplification rather than introducing a new one.
 
 DECISIONS.md entry: Switched dashboard outer layout from flexbox to CSS Grid specifically to support the drawer's push-transition — grid-template-columns toggled via JS between 272px 1fr 0px (closed) and 272px 1fr 360px (open), single property animates smoothly, no manual width math needed for the three-column proportions
+
+DECISIONS.md entry: Settings page exposes only the sensitivity preset radio (low/balanced/high), not the min_sigma/detectors_enabled override columns — those exist in the schema and are already read by resolve_thresholds(), but the architecture doc explicitly scoped the Settings UI to "keep this small"; overrides remain a real, usable-but-unexposed capability, not dead schema.
+
+DECISIONS.md entry: Verified /api/news/{ticker} against live NewsAPI.org — real headline returned for RELIANCE, confirming key validity and endpoint wiring before frontend integration.

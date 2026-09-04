@@ -11,3 +11,7 @@ bcrypt
 itsdangerous
 email-validator
 jinja2
+httpx
+
+ 
+ 
