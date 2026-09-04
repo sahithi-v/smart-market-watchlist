@@ -81,3 +81,5 @@ DECISIONS.md entry: Switched dashboard outer layout from flexbox to CSS Grid spe
 DECISIONS.md entry: Settings page exposes only the sensitivity preset radio (low/balanced/high), not the min_sigma/detectors_enabled override columns — those exist in the schema and are already read by resolve_thresholds(), but the architecture doc explicitly scoped the Settings UI to "keep this small"; overrides remain a real, usable-but-unexposed capability, not dead schema.
 
 DECISIONS.md entry: Verified /api/news/{ticker} against live NewsAPI.org — real headline returned for RELIANCE, confirming key validity and endpoint wiring before frontend integration.
+
+DECISIONS.md entry: Added a global "Prices as of Xm ago" indicator on the dashboard, distinct from each digest card's own event timestamp — directly answers the brief's "how do you handle stale data" requirement by surfacing data freshness explicitly, not just implicitly through per-event timestamps.

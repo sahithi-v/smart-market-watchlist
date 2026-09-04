@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
+
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func
+
 from app.db import get_db
-from app.models import Symbol, User, WatchlistItem
 from app.digest import build_digest
-from app.models import UserSettings
+from app.models import Symbol, User, WatchlistItem, PriceTick, UserSettings
 from app.signals.presets import PRESETS, DEFAULT_SENSITIVITY
 
 router = APIRouter()
@@ -75,6 +77,14 @@ def dashboard_page(
     digest_result = build_digest(db, user, now)
     digest_items = _format_digest_items(digest_result["items"], now)
 
+    latest_tick_ts = (
+        db.query(func.max(PriceTick.ts))
+        .join(WatchlistItem, WatchlistItem.symbol_id == PriceTick.symbol_id)
+        .filter(WatchlistItem.user_id == user.id)
+        .scalar()
+    )
+    data_freshness = _time_ago(latest_tick_ts.isoformat(), now) if latest_tick_ts else None
+
     return templates.TemplateResponse(
         request, "dashboard.html",
         {
@@ -82,8 +92,11 @@ def dashboard_page(
             "digest_items": digest_items,
             "other_count": digest_result["other_count"],
             "empty_reason": digest_result["empty_reason"],
+            "data_freshness": data_freshness,
         },
     )
+
+
 @router.get("/settings")
 def settings_page(
     request: Request,

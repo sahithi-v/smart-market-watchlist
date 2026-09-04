@@ -40,8 +40,10 @@
             <h1 class="font-display text-2xl text-ink">Today</h1>
             <a href="/settings" class="text-slatemoss text-sm hover:text-ink">Settings</a>
         </div>
-      <p class="text-slatemoss text-sm mb-6">{{ digest_items|length }} item{{ 's' if digest_items|length != 1 }}</p>
-
+      <p class="text-slatemoss text-sm mb-6">
+        {{ digest_items|length }} item{{ 's' if digest_items|length != 1 }}
+        {% if data_freshness %} · Prices as of {{ data_freshness }}{% endif %}
+      </p>
       {% if empty_reason == "no_watchlist" %}
       <div class="bg-chalk border border-fog rounded-sm p-6 text-center">
         <p class="text-ink text-sm">Add a symbol to your watchlist to start seeing your digest.</p>
