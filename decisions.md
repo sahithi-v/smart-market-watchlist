@@ -6,33 +6,10 @@ DECISIONS.md entry: symbol_stats is a single-row-per-symbol snapshot (symbol_id 
 
 DECISIONS.md entry: events.payload and detectors_enabled use JSONB for detector-specific variable shape, not fixed nullable columns. detector is a plain String validated by a Python Enum, not a Postgres ENUM type — avoids ALTER TYPE friction for a small evolving set.
 
-class UserSymbolCursor(Base):
-    __tablename__ = "user_symbol_cursor"
+DECISIONS.md entry: Alembic pulls DATABASE_URL from Settings/.env at runtime rather than storing it in alembic.ini — keeps the real credential out of a file that's normally safe to commit.
 
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
-    symbol_id: Mapped[int] = mapped_column(ForeignKey("symbols.id"), primary_key=True)
-    last_seen_event_ts: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+DECISIONS.md entry: Sync SQLAlchemy + psycopg2, not async — FastAPI's threadpool gives concurrency for free at this scale; async DB access is unjustified complexity here.
 
+DECISIONS.md entry: user_event_state tracks shown_at in addition to dismissed_at — detector affinity (dismissed/shown ratio) is unmeasurable without knowing the denominator of times an alert was actually surfaced.
 
-class UserSettings(Base):
-    __tablename__ = "user_settings"
-
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
-    sensitivity: Mapped[str] = mapped_column(String(20), default="balanced")
-    min_sigma: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
-    detectors_enabled: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
-class IdempotencyKey(Base):
-    __tablename__ = "idempotency_keys"
-
-    key: Mapped[str] = mapped_column(String(80), primary_key=True)
-    endpoint: Mapped[str] = mapped_column(String(120))
-    request_hash: Mapped[str] = mapped_column(String(64))
-    response_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    status_code: Mapped[int] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+DECISIONS.md entry: Reserved a circuit_pct column on symbols for a future circuit-proximity detector (India-specific price-band halt mechanic) — column added now at zero cost, detector logic deferred to Phase 2 with the rest of the signal engine.
