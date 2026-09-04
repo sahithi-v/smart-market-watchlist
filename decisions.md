@@ -57,3 +57,11 @@ DECISIONS.md entry: All auth forms use hx-swap="none" — without it, HTMX's def
 DECISIONS.md entry: hx-swap="none" added to both auth forms — closes the JSON-flash bug where HTMX's default swap briefly rendered raw response text before the custom redirect handler fired.
 
 DECISIONS.md entry: Dashboard page route (/dashboard) queries the DB directly and server-renders the initial digest/watchlist HTML — reuses existing Phase 1/2 Python functions (assemble_digest, watchlist queries) rather than duplicating them as a second JSON-consuming path. HTMX handles only
+
+DECISIONS.md entry: SECRET_KEY env var was missing on Railway (only existed in local .env, correctly gitignored) — caused a startup crash via pydantic-settings validation, taking the whole live app down. Fixed by setting SECRET_KEY directly in Railway's Variables tab. Local .env and deployed environment variables are separate stores by design; nothing auto-syncs between them.
+
+DECISIONS.md entry: Added GET /api/watchlist — was missing despite being described as built in an earlier DECISIONS.md entry; joins WatchlistItem → Symbol, ordered pinned-first then by position, matching the sidebar's intended visual grouping.
+
+DECISIONS.md entry: Verified POST /api/watchlist end-to-end against live Neon DB via authenticated session — real insert, real cursor row, real position auto-increment logic.
+
+DECISIONS.md entry: Verified optimistic locking end-to-end — PATCH with correct version succeeds and increments version; PATCH with stale version correctly rejected with 409, proving the WHERE version=:expected guard actually prevents concurrent overwrites, not just a schema column nobody enforces.
