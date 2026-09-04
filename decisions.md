@@ -68,3 +68,16 @@ DECISIONS.md entry: Sensitivity resolution (user override -> preset -> default) 
 DECISIONS.md entry: Considered JWT over signed-cookie sessions; rejected — JWT solves cross-origin/stateless problems this same-origin server-rendered app doesn't have, and doesn't fix revocation without a blocklist, which reintroduces server-side state anyway.
 
 DECISIONS.md entry: Session cookie uses Starlette's default SameSite=Lax, blocking the cookie on cross-site non-GET requests — closes the standard CSRF vector as long as all state-changing routes stay POST/PATCH/DELETE, never GET. No separate CSRF token needed at this scope.
+
+DECISIONS.md entry: bcrypt called directly, not via passlib — passlib is unmaintained and breaks on bcrypt>=4.1; one fewer dependency layer, same well-audited primitive.
+
+DECISIONS.md entry: Sessions use Starlette's signed-cookie SessionMiddleware, not a DB-backed session table — no server-side session storage or extra table, consistent with the "no Redis unless you finish early" stance.
+
+DECISIONS.md entry: Considered JWT over signed-cookie sessions; rejected — JWT solves cross-origin/stateless problems this same-origin server-rendered app doesn't have, and doesn't fix revocation without a blocklist, which reintroduces server-side state anyway.
+
+DECISIONS.md entry: Session cookie uses Starlette's default SameSite=Lax, blocking the cookie on cross-site non-GET requests — closes the standard CSRF vector as long as all state-changing routes stay POST/PATCH/DELETE, never GET. No separate CSRF token needed at this scope.
+
+DECISIONS.md entry: Login returns the same generic "Invalid email or password" for both a wrong password and a nonexistent email — a distinct message for each would let an attacker enumerate which emails have accounts.
+
+DECISIONS.md entry: Real multi-user auth (signup/login/password), not a single demo user — the product's whole thesis is personalization (per-user cursor, sensitivity, affinity), which can't be demonstrated with one user. A no-password demo-switcher was considered and rejected in favor of real signup, at the cost of ~1 hour against the budget.
+DECISIONS.md entry: Adding a symbol to a watchlist is one atomic INSERT ... ON CONFLICT DO NOTHING ... RETURNING, not a check-then-insert — same race-free pattern as ingest.py, applied consistently rather than reinvented per endpoint.
