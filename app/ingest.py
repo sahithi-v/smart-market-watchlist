@@ -1,15 +1,44 @@
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.db import SessionLocal
-from app.models import Symbol, PriceTick
-from app.providers import SimulatedProvider
+from app.models import Symbol, PriceTick, SymbolStats, DailyBar
+from app.providers import SimulatedProvider, YFinanceProvider, CircuitBreakerProvider
 
-provider = SimulatedProvider()
+_provider = None
+
+
+def build_seed_data(db) -> dict[str, dict]:
+    """Real last close + real daily volatility per symbol, used to seed the fallback provider."""
+    seed = {}
+    for symbol in db.query(Symbol).all():
+        stats = db.query(SymbolStats).filter_by(symbol_id=symbol.id).first()
+        last_bar = (
+            db.query(DailyBar).filter_by(symbol_id=symbol.id)
+            .order_by(DailyBar.date.desc()).first()
+        )
+        if stats and last_bar:
+            seed[symbol.ticker] = {
+                "last_close_paise": last_bar.close_paise,
+                "daily_stddev": float(stats.stddev_return),
+            }
+    return seed
+
+
+def get_provider(db):
+    global _provider
+    if _provider is None:
+        seed_data = build_seed_data(db)
+        _provider = CircuitBreakerProvider(
+            primary=YFinanceProvider(),
+            fallback=SimulatedProvider(seed_data=seed_data),
+        )
+    return _provider
 
 
 def run_ingest():
     db = SessionLocal()
     try:
+        provider = get_provider(db)
         symbols = db.query(Symbol).all()
         ticker_to_id = {s.ticker: s.id for s in symbols}
         quotes = provider.fetch_quotes(list(ticker_to_id.keys()))

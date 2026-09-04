@@ -20,19 +20,28 @@ class MarketDataProvider(Protocol):
 
 
 class SimulatedProvider:
-    """Deterministic seeded random walk. Same seed -> same price path, every run."""
+    DEMO_SESSION_TICKS = 20  # ~5 min of ticks treated as one visible demo "arc"
 
-    def __init__(self, seed: int = 42):
+    def __init__(self, seed: int = 42, seed_data: dict[str, dict] | None = None):
         self._seed = seed
+        self._seed_data = seed_data or {}
         self._rngs: dict[str, random.Random] = {}
         self._last_price: dict[str, int] = {}
         self._last_volume: dict[str, int] = {}
+        self._tick_std: dict[str, float] = {}
 
     def _rng_for(self, ticker: str) -> random.Random:
         if ticker not in self._rngs:
-            self._rngs[ticker] = random.Random(f"{self._seed}:{ticker}")
-            self._last_price[ticker] = self._rngs[ticker].randint(10_000, 500_000)
-            self._last_volume[ticker] = self._rngs[ticker].randint(50_000, 500_000)
+            rng = random.Random(f"{self._seed}:{ticker}")
+            self._rngs[ticker] = rng
+            real = self._seed_data.get(ticker)
+            if real:
+                self._last_price[ticker] = real["last_close_paise"]
+                self._tick_std[ticker] = real["daily_stddev"] / (self.DEMO_SESSION_TICKS ** 0.5)
+            else:
+                self._last_price[ticker] = rng.randint(10_000, 500_000)
+                self._tick_std[ticker] = 0.004
+            self._last_volume[ticker] = rng.randint(50_000, 500_000)
         return self._rngs[ticker]
 
     def fetch_quotes(self, tickers: list[str]) -> list[Quote]:
@@ -40,14 +49,13 @@ class SimulatedProvider:
         quotes = []
         for ticker in tickers:
             rng = self._rng_for(ticker)
-            ret = rng.gauss(0, 0.004)
+            ret = rng.gauss(0, self._tick_std[ticker])
             price = max(100, int(self._last_price[ticker] * (1 + ret)))
             vol = max(1, int(self._last_volume[ticker] * rng.uniform(0.7, 1.4)))
             self._last_price[ticker] = price
             self._last_volume[ticker] = vol
             quotes.append(Quote(ticker, price, vol, now, "simulated"))
         return quotes
-    
 from datetime import timedelta
 
 
