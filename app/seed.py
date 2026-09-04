@@ -7,6 +7,15 @@ SEED_SYMBOLS = [
     ("HDFCBANK", "HDFC Bank Ltd", "NSE"),
     ("RELIANCE", "Reliance Industries", "NSE"),
     ("ICICIBANK", "ICICI Bank Ltd", "NSE"),
+    ("SBIN", "State Bank of India", "NSE"),
+    ("ITC", "ITC Ltd", "NSE"),
+    ("BHARTIARTL", "Bharti Airtel Ltd", "NSE"),
+    ("KOTAKBANK", "Kotak Mahindra Bank Ltd", "NSE"),
+    ("LT", "Larsen & Toubro Ltd", "NSE"),
+    ("AXISBANK", "Axis Bank Ltd", "NSE"),
+    ("MARUTI", "Maruti Suzuki India Ltd", "NSE"),
+    ("SUNPHARMA", "Sun Pharmaceutical Industries", "NSE"),
+    ("WIPRO", "Wipro Ltd", "NSE"),
 ]
 
 

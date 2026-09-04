@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+import yfinance as yf
 from datetime import datetime
 from typing import Protocol
-
+import random 
+from datetime import datetime, timezone
 
 @dataclass(frozen=True)
 class Quote:
@@ -15,8 +17,6 @@ class Quote:
 class MarketDataProvider(Protocol):
     def fetch_quotes(self, tickers: list[str]) -> list[Quote]: ...
 
-import random
-from datetime import datetime, timezone
 
 
 class SimulatedProvider:
@@ -47,3 +47,50 @@ class SimulatedProvider:
             self._last_volume[ticker] = vol
             quotes.append(Quote(ticker, price, vol, now, "simulated"))
         return quotes
+    
+from datetime import timedelta
+
+
+class YFinanceProvider:
+    """Real live quotes. Skips individual failed tickers; raises only if all fail."""
+
+    def fetch_quotes(self, tickers: list[str]) -> list[Quote]:
+        now = datetime.now(timezone.utc)
+        quotes = []
+        for ticker in tickers:
+            try:
+                info = yf.Ticker(f"{ticker}.NS").fast_info
+                quotes.append(Quote(ticker, round(info["lastPrice"] * 100),
+                                     int(info["lastVolume"]), now, "yfinance"))
+            except Exception:
+                continue
+        if not quotes:
+            raise RuntimeError("YFinanceProvider: no quotes for any ticker")
+        return quotes
+
+
+class CircuitBreakerProvider:
+    def __init__(self, primary, fallback, failure_threshold: int = 3, reset_seconds: int = 60):
+        self._primary = primary
+        self._fallback = fallback
+        self._threshold = failure_threshold
+        self._reset_seconds = reset_seconds
+        self._consecutive_failures = 0
+        self._open_until: datetime | None = None
+
+    def fetch_quotes(self, tickers: list[str]) -> list[Quote]:
+        now = datetime.now(timezone.utc)
+        if self._open_until and now < self._open_until:
+            return self._fallback.fetch_quotes(tickers)
+        try:
+            quotes = self._primary.fetch_quotes(tickers)
+            self._consecutive_failures = 0
+            self._open_until = None
+            return quotes
+        except Exception as e:
+            self._consecutive_failures += 1
+            print(f"Primary provider failed ({e}), consecutive={self._consecutive_failures}")
+            if self._consecutive_failures >= self._threshold:
+                self._open_until = now + timedelta(seconds=self._reset_seconds)
+                print(f"Circuit open until {self._open_until}")
+            return self._fallback.fetch_quotes(tickers)
