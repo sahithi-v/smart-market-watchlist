@@ -7,9 +7,11 @@ from app.providers import SimulatedProvider, YFinanceProvider, CircuitBreakerPro
 _provider = None
 
 
-def build_seed_data(db) -> dict[str, dict]:
-    """Real last close + real daily volatility per symbol, used to seed the fallback provider."""
-    seed = {}
+def build_symbol_context(db) -> dict[str, dict]:
+    """Real last close, mean return, and daily volatility per symbol.
+    Used to seed the fallback provider AND as detector input in the
+    signal engine — same underlying data, one query loop, not two."""
+    context = {}
     for symbol in db.query(Symbol).all():
         stats = db.query(SymbolStats).filter_by(symbol_id=symbol.id).first()
         last_bar = (
@@ -17,11 +19,12 @@ def build_seed_data(db) -> dict[str, dict]:
             .order_by(DailyBar.date.desc()).first()
         )
         if stats and last_bar:
-            seed[symbol.ticker] = {
+            context[symbol.ticker] = {
                 "last_close_paise": last_bar.close_paise,
+                "mean_return": float(stats.mean_return),
                 "daily_stddev": float(stats.stddev_return),
             }
-    return seed
+    return context
 
 
 def get_provider(db):
