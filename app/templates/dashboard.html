@@ -2,8 +2,9 @@
 {% block title %}Dashboard — Smart Watchlist{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex">
-  <aside class="w-[272px] shrink-0 border-r border-fog bg-chalk p-4">
+<div id="layout" class="min-h-screen grid transition-all duration-300" style="grid-template-columns: 272px 1fr 0px;">
+
+  <aside class="border-r border-fog bg-chalk p-4 overflow-hidden">
     <h2 class="font-display text-lg text-ink mb-4">Watchlist</h2>
     <ul id="watchlist-list" class="space-y-1">
       {% for item in watchlist %}
@@ -26,13 +27,98 @@
     </ul>
   </aside>
 
-  <main class="flex-1 p-8">
-    <h1 class="font-display text-2xl text-ink">Welcome, {{ user.name }}</h1>
-    <p class="text-slatemoss text-sm mt-2">Digest coming next.</p>
+  <main class="p-8 overflow-hidden">
+    <div class="max-w-2xl">
+      <h1 class="font-display text-2xl text-ink mb-1">Today</h1>
+      <p class="text-slatemoss text-sm mb-6">{{ digest_items|length }} item{{ 's' if digest_items|length != 1 }}</p>
+
+      {% if empty_reason == "no_watchlist" %}
+      <div class="bg-chalk border border-fog rounded-sm p-6 text-center">
+        <p class="text-ink text-sm">Add a symbol to your watchlist to start seeing your digest.</p>
+      </div>
+      {% elif empty_reason == "quiet" %}
+      <div class="bg-chalk border border-fog rounded-sm p-6 text-center">
+        <p class="text-ink text-sm">Nothing worth your attention right now.</p>
+        <p class="text-slatemoss text-xs mt-1">We'll surface something when it actually matters.</p>
+      </div>
+      {% else %}
+      <div class="space-y-3">
+        {% for item in digest_items %}
+        <div class="bg-chalk border border-fog {{ 'border-l-2 border-l-deepmoss' if loop.first }} rounded-sm p-4 cursor-pointer hover:border-slatemoss"
+             data-item='{{ item|tojson }}' data-rank="{{ loop.index }}"
+             onclick="openDrawer(this)">
+          <div class="flex items-baseline justify-between">
+            <span class="font-display text-lg text-ink">{{ item.ticker }}</span>
+            <span class="font-mono text-sm text-ink">{{ item.sigma }}σ</span>
+          </div>
+          <p class="text-ink text-sm mt-1">{{ item.explanation }}</p>
+          <div class="flex items-baseline justify-between mt-2">
+            <span class="font-mono text-xs text-slatemoss">{{ item.price_display }}</span>
+            <span class="font-mono text-xs text-slatemoss">{{ item.time_ago }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if other_count > 0 %}
+      <p class="text-slatemoss text-xs mt-4 text-center">+{{ other_count }} more, not shown</p>
+      {% endif %}
+      {% endif %}
+    </div>
   </main>
+
+  <aside id="drawer" class="overflow-hidden border-l border-fog bg-chalk">
+    <div class="w-[360px] p-6 h-full overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-display text-lg text-ink">Why is <span id="drawer-ticker"></span> ranked #<span id="drawer-rank"></span>?</h3>
+        <button onclick="closeDrawer()" class="text-slatemoss hover:text-ink">✕</button>
+      </div>
+
+      <div class="font-mono text-sm space-y-2 mb-6">
+        <div class="flex justify-between"><span class="text-slatemoss">Base magnitude</span><span id="drawer-magnitude" class="text-ink"></span></div>
+        <div class="flex justify-between"><span class="text-slatemoss">× Recency</span><span id="drawer-recency" class="text-ink"></span></div>
+        <div class="flex justify-between"><span class="text-slatemoss">× You pinned this</span><span id="drawer-pin" class="text-ink"></span></div>
+        <div class="flex justify-between"><span class="text-slatemoss">× Your pattern</span><span id="drawer-affinity" class="text-ink"></span></div>
+        <div class="flex justify-between border-t border-fog pt-2 font-medium"><span class="text-ink">Score</span><span id="drawer-score" class="text-ink"></span></div>
+      </div>
+
+      <div class="bg-mist border border-fog rounded-sm p-3 mb-6">
+        <p class="text-xs text-slatemoss" id="drawer-naive"></p>
+      </div>
+
+      <div id="drawer-news">
+        <h4 class="text-sm text-ink font-medium mb-2">Read more</h4>
+        <p class="text-xs text-slatemoss" id="drawer-news-content">News coming next.</p>
+      </div>
+    </div>
+  </aside>
 </div>
 
 <script>
+  function openDrawer(el) {
+    const item = JSON.parse(el.dataset.item);
+    const actualRank = el.dataset.rank;
+    document.getElementById('drawer-ticker').textContent = item.ticker;
+    document.getElementById('drawer-rank').textContent = actualRank;
+    document.getElementById('drawer-magnitude').textContent = item.breakdown.magnitude.toFixed(2) + 'σ';
+    document.getElementById('drawer-recency').textContent = item.breakdown.recency_decay.toFixed(2);
+    document.getElementById('drawer-pin').textContent = item.breakdown.pin_weight.toFixed(1) + '×';
+    document.getElementById('drawer-affinity').textContent = item.breakdown.affinity.toFixed(2);
+    document.getElementById('drawer-score').textContent = item.score.toFixed(2);
+
+    const naiveEl = document.getElementById('drawer-naive');
+    if (parseInt(actualRank) === item.naive_rank) {
+      naiveEl.textContent = `Under a naive "sort by raw move alone" approach, this would rank the same — #${item.naive_rank}.`;
+    } else {
+      naiveEl.textContent = `Under a naive "sort by raw move alone" approach, this would rank #${item.naive_rank} instead of #${actualRank}.`;
+    }
+
+    document.getElementById('layout').style.gridTemplateColumns = '272px 1fr 360px';
+  }
+
+  function closeDrawer() {
+    document.getElementById('layout').style.gridTemplateColumns = '272px 1fr 0px';
+  }
+
   function checkEmptyState() {
     const list = document.getElementById('watchlist-list');
     if (list.querySelectorAll('li[data-id]').length === 0) {

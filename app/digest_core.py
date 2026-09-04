@@ -1,7 +1,6 @@
 from datetime import datetime
-
 from app.signals.cooldown import collapse_cooldown_groups
-from app.signals.scoring import score_event
+from app.signals.scoring import score_breakdown
 
 MAX_DIGEST_ITEMS = 5
 COOLDOWN_HOURS = 4.0
@@ -25,9 +24,8 @@ def assemble_digest(
         and abs(e["sigma"]) >= thresholds.get(e["detector"], float("inf"))
     ]
     collapsed = collapse_cooldown_groups(above_threshold, cooldown_hours=COOLDOWN_HOURS)
-
     scored = [
-        {**e, "score": score_event(
+        {**e, **score_breakdown(
             e["sigma"], e["ts"], now,
             pinned=e.get("pinned", False),
             detector_affinity=affinities.get(e["detector"], 1.0),
@@ -35,12 +33,17 @@ def assemble_digest(
         for e in collapsed
     ]
     scored.sort(key=lambda e: e["score"], reverse=True)
-
     top = scored[:MAX_DIGEST_ITEMS]
     other_count = max(0, len(scored) - len(top))
-    items = [_format_item(e, latest_prices.get(e["symbol_id"])) for e in top]
-    empty_reason = "quiet" if not raw_events else None
 
+    # Naive comparison: same candidate pool, sorted by raw magnitude alone,
+    # no recency/pin/affinity weighting — this is the "obvious" approach
+    # the drawer contrasts against.
+    naive_order = sorted(collapsed, key=lambda e: abs(e["sigma"]), reverse=True)
+    naive_rank = {e["event_id"]: i + 1 for i, e in enumerate(naive_order)}
+
+    items = [_format_item(e, latest_prices.get(e["symbol_id"]), naive_rank.get(e["event_id"])) for e in top]
+    empty_reason = "quiet" if not raw_events else None
     return {"items": items, "other_count": other_count, "empty_reason": empty_reason}
 
 
@@ -55,10 +58,18 @@ def _explain(e: dict) -> str:
     return f"{e['detector']} triggered."
 
 
-def _format_item(e: dict, current_price_paise: int | None) -> dict:
+def _format_item(e: dict, current_price_paise: int | None, naive_rank: int | None) -> dict:
     return {
         "event_id": e["event_id"], "ticker": e["ticker"], "name": e["name"],
         "detector": e["detector"], "sigma": round(e["sigma"], 2),
         "current_price_paise": current_price_paise, "explanation": _explain(e),
         "ts": e["ts"].isoformat(),
+        "score": round(e["score"], 3),
+        "breakdown": {
+            "magnitude": round(e["magnitude"], 3),
+            "recency_decay": round(e["recency_decay"], 3),
+            "pin_weight": e["pin_weight"],
+            "affinity": round(e["affinity"], 3),
+        },
+        "naive_rank": naive_rank,
     }

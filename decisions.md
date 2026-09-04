@@ -71,3 +71,9 @@ DECISIONS.md entry: Watchlist pin/remove buttons use plain JS fetch() against th
 DECISIONS.md entry: Watchlist row markup exists in two places (Jinja initial render + JS renderItemHtml for post-pin refresh) — accepted duplication; alternative was adding HTML-fragment endpoints that would duplicate already-tested JSON logic instead.
 
 DECISIONS.md entry: DELETE returning 404 is treated as success in the UI (row removed from DOM regardless) — a 404 here means the end state the user wants was already true, likely from a second tab; surfacing it as an error would be misleading.
+
+DECISIONS.md entry: Digest item formatting (paise→₹ conversion, relative "Xm/Xh ago" timestamps) happens in the page route (Python), not in Jinja — keeps template display-only and formatting logic independently testable, consistent with digest_core.py already being a pure, separately-tested function.
+
+DECISIONS.md entry: Naive-comparison ranking (the "how would this look under the obvious approach" toggle) sorts by abs(sigma) rather than raw % price change — VOLUME_SPIKE events have no price-change field, and sigma is already the app's documented cross-detector magnitude proxy. Reuses an existing named simplification rather than introducing a new one.
+
+DECISIONS.md entry: Switched dashboard outer layout from flexbox to CSS Grid specifically to support the drawer's push-transition — grid-template-columns toggled via JS between 272px 1fr 0px (closed) and 272px 1fr 360px (open), single property animates smoothly, no manual width math needed for the three-column proportions
