@@ -14,6 +14,7 @@ from app.signal_engine import run_signal_engine
 from app.digest import router as digest_router
 from app.events import router as events_router
 from app.pages import router as pages_router
+from app.user_settings import router as user_settings_router
 
 scheduler = BackgroundScheduler()
 
@@ -35,6 +36,7 @@ app.include_router(watchlist_router)
 app.include_router(digest_router)
 app.include_router(events_router)
 app.include_router(pages_router)
+app.include_router(user_settings_router)
 
 @app.get("/api/health")
 def health():

@@ -29,7 +29,10 @@
 
   <main class="p-8 overflow-hidden">
     <div class="max-w-2xl">
-      <h1 class="font-display text-2xl text-ink mb-1">Today</h1>
+        <div class="flex items-center justify-between mb-1">
+            <h1 class="font-display text-2xl text-ink">Today</h1>
+            <a href="/settings" class="text-slatemoss text-sm hover:text-ink">Settings</a>
+        </div>
       <p class="text-slatemoss text-sm mb-6">{{ digest_items|length }} item{{ 's' if digest_items|length != 1 }}</p>
 
       {% if empty_reason == "no_watchlist" %}

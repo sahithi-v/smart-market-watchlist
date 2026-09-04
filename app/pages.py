@@ -5,6 +5,8 @@ from fastapi.templating import Jinja2Templates
 from app.db import get_db
 from app.models import Symbol, User, WatchlistItem
 from app.digest import build_digest
+from app.models import UserSettings
+from app.signals.presets import PRESETS, DEFAULT_SENSITIVITY
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -81,4 +83,20 @@ def dashboard_page(
             "other_count": digest_result["other_count"],
             "empty_reason": digest_result["empty_reason"],
         },
+    )
+@router.get("/settings")
+def settings_page(
+    request: Request,
+    user: User = Depends(get_current_user_optional),
+    db=Depends(get_db),
+):
+    if user is None:
+        return RedirectResponse(url="/login")
+
+    row = db.query(UserSettings).filter_by(user_id=user.id).first()
+    current = row.sensitivity if row else DEFAULT_SENSITIVITY
+
+    return templates.TemplateResponse(
+        request, "settings.html",
+        {"user": user, "current_sensitivity": current, "presets": PRESETS},
     )

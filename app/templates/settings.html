@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Settings — Smart Watchlist{% endblock %}
+
+{% block content %}
+<div class="min-h-screen p-8 max-w-lg">
+  <a href="/dashboard" class="text-slatemoss text-sm hover:text-ink">← Back to dashboard</a>
+  <h1 class="font-display text-2xl text-ink mt-4 mb-1">Settings</h1>
+  <p class="text-slatemoss text-sm mb-6">Choose how much movement it takes before something shows up in your digest.</p>
+
+  <div class="bg-chalk border border-fog rounded-sm p-6 space-y-4">
+    {% for level in ["low", "balanced", "high"] %}
+    <label class="flex items-start gap-3 cursor-pointer">
+      <input type="radio" name="sensitivity" value="{{ level }}"
+        {{ 'checked' if level == current_sensitivity }}
+        onchange="saveSensitivity('{{ level }}')"
+        class="mt-1">
+      <span>
+        <span class="text-ink text-sm font-medium capitalize">{{ level }}</span>
+        <span class="text-slatemoss text-xs block">
+          {% if level == "low" %}Only the biggest moves — fewer alerts.
+          {% elif level == "balanced" %}A reasonable middle ground.
+          {% else %}Catches smaller moves too — more alerts.{% endif %}
+        </span>
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+
+  <p id="settings-status" class="text-xs text-deepmoss mt-3 hidden">Saved.</p>
+</div>
+
+<script>
+  async function saveSensitivity(level) {
+    const statusEl = document.getElementById('settings-status');
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sensitivity: level })
+      });
+      if (res.ok) {
+        statusEl.classList.remove('hidden');
+        setTimeout(() => statusEl.classList.add('hidden'), 2000);
+      } else {
+        alert('Could not save — please try again.');
+      }
+    } catch (e) {
+      alert('Network error — please try again.');
+    }
+  }
+</script>
+{% endblock %}
