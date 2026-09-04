@@ -1,15 +1,27 @@
+from pathlib import Path
+
+import pandas as pd
 import yfinance as yf
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+
 from app.models import DailyBar
 
+CSV_PATH = Path(__file__).parent.parent / "data" / "daily_bars_seed.csv"
+
+
 def fetch_daily_bars(ticker: str, period: str = "6mo"):
-    hist = yf.download(f"{ticker}.NS", period=period, interval="1d", progress=False)
-    hist.columns = hist.columns.get_level_values(0)  # drop the ticker sub-level
-    return hist
-
-
-
-
+    try:
+        hist = yf.download(f"{ticker}.NS", period=period, interval="1d", progress=False)
+        if hist.empty:
+            raise ValueError("empty response")
+        hist.columns = hist.columns.get_level_values(0)
+        return hist
+    except Exception as e:
+        print(f"{ticker}: yfinance failed ({e}), falling back to CSV")
+        df = pd.read_csv(CSV_PATH, parse_dates=["Date"])
+        df = df[df["Ticker"] == ticker].set_index("Date")
+        return df[["Open", "High", "Low", "Close", "Volume"]]
+    
 def write_daily_bars(db, symbol_id: int, hist):
     for date, row in hist.iterrows():
         stmt = pg_insert(DailyBar).values(
