@@ -6,7 +6,7 @@ SEED_SYMBOLS = [
     ("TCS", "Tata Consultancy Services", "NSE"),
     ("HDFCBANK", "HDFC Bank Ltd", "NSE"),
     ("RELIANCE", "Reliance Industries", "NSE"),
-    ("TATAMOTORS", "Tata Motors Ltd", "NSE"),
+    ("ICICIBANK", "ICICI Bank Ltd", "NSE"),
 ]
 
 
