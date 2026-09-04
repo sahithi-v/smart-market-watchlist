@@ -5,6 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from sqlalchemy import ForeignKey, Boolean, Integer, UniqueConstraint, BigInteger, Numeric
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Date
 from app.db import Base
 
 
@@ -115,3 +116,17 @@ class IdempotencyKey(Base):
     response_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status_code: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+
+
+class DailyBar(Base):
+    __tablename__ = "daily_bars"
+
+    symbol_id: Mapped[int] = mapped_column(ForeignKey("symbols.id"), primary_key=True)
+    date: Mapped[Date] = mapped_column(Date, primary_key=True)
+    open_paise: Mapped[int] = mapped_column(BigInteger)
+    high_paise: Mapped[int] = mapped_column(BigInteger)
+    low_paise: Mapped[int] = mapped_column(BigInteger)
+    close_paise: Mapped[int] = mapped_column(BigInteger)
+    volume: Mapped[int] = mapped_column(BigInteger)
