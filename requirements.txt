@@ -7,3 +7,6 @@ pydantic-settings
 apscheduler
 yfinance
 pytest
+bcrypt
+itsdangerous
+email-validator

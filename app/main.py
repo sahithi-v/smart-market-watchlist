@@ -6,7 +6,9 @@ from fastapi import FastAPI
 from app.rolling_stats import run_rolling_stats
 from datetime import datetime
 from app.ingest import run_ingest
-
+from starlette.middleware.sessions import SessionMiddleware
+from app.config import settings
+from app.auth import router as auth_router
 scheduler = BackgroundScheduler()
 
 
@@ -20,6 +22,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Smart Market Watchlist", lifespan=lifespan)
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+app.include_router(auth_router)
 
 
 @app.get("/api/health")

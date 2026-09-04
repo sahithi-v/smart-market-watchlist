@@ -64,3 +64,7 @@ DECISIONS.md entry: Every detector emits at the system floor — the loosest min
 DECISIONS.md entry: Cooldown/suppression is a read-time concern, not an emission-time one. Every qualifying event is stored; the digest query collapses events sharing (symbol, detector) within the cooldown window down to the highest-magnitude one. Emission-time cooldown would let an early small move suppress a later larger one for every user who reads after it.
 
 DECISIONS.md entry: Sensitivity resolution (user override -> preset -> default) is one function, resolve_min_sigma(), called both when validating a settings write and when scoring a digest read — so the two can't drift apart. Overrides below the emission floor are rejected outright rather than silently accepted and shown nothing.
+
+DECISIONS.md entry: Considered JWT over signed-cookie sessions; rejected — JWT solves cross-origin/stateless problems this same-origin server-rendered app doesn't have, and doesn't fix revocation without a blocklist, which reintroduces server-side state anyway.
+
+DECISIONS.md entry: Session cookie uses Starlette's default SameSite=Lax, blocking the cookie on cross-site non-GET requests — closes the standard CSRF vector as long as all state-changing routes stay POST/PATCH/DELETE, never GET. No separate CSRF token needed at this scope.
