@@ -25,6 +25,13 @@
       <li class="text-slatemoss text-sm">No symbols yet.</li>
       {% endfor %}
     </ul>
+
+    <form onsubmit="addSymbol(event)" class="mt-4 flex gap-2">
+      <input type="text" id="add-symbol-input" placeholder="e.g. TCS" required
+        class="flex-1 border border-fog rounded-sm px-2 py-1.5 text-sm bg-mist focus:outline-none focus:border-deepmoss uppercase">
+      <button type="submit" class="bg-deepmoss text-chalk text-sm px-3 rounded-sm hover:opacity-90">Add</button>
+    </form>
+    <p id="add-symbol-error" class="hidden text-oxblood text-xs mt-2"></p>
   </aside>
 
   <main class="p-8 overflow-hidden">
@@ -97,6 +104,32 @@
 </div>
 
 <script>
+  async function addSymbol(event) {
+    event.preventDefault();
+    const input = document.getElementById('add-symbol-input');
+    const errorEl = document.getElementById('add-symbol-error');
+    const ticker = input.value.trim().toUpperCase();
+    errorEl.classList.add('hidden');
+    try {
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker })
+      });
+      if (res.ok) {
+        input.value = '';
+        location.reload();
+      } else {
+        const data = await res.json();
+        errorEl.textContent = data.detail || 'Could not add symbol.';
+        errorEl.classList.remove('hidden');
+      }
+    } catch (e) {
+      errorEl.textContent = 'Network error — please try again.';
+      errorEl.classList.remove('hidden');
+    }
+  }
+
   function openDrawer(el) {
     const item = JSON.parse(el.dataset.item);
     const actualRank = el.dataset.rank;
