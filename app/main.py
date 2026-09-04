@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI
-
+from app.rolling_stats import run_rolling_stats
+from datetime import datetime
 from app.ingest import run_ingest
 
 scheduler = BackgroundScheduler()
@@ -12,6 +13,7 @@ scheduler = BackgroundScheduler()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler.add_job(run_ingest, IntervalTrigger(seconds=15), id="ingest", replace_existing=True)
+    scheduler.add_job(run_rolling_stats, IntervalTrigger(hours=1), id="rolling_stats", replace_existing=True, next_run_time=datetime.now())
     scheduler.start()
     yield
     scheduler.shutdown(wait=False)
