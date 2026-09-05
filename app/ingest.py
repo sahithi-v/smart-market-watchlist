@@ -1,8 +1,7 @@
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-
 from app.db import SessionLocal
 from app.models import Symbol, PriceTick, SymbolStats, DailyBar
-from app.providers import SimulatedProvider, YFinanceProvider, CircuitBreakerProvider
+from app.providers import SimulatedProvider, YFinanceProvider, CircuitBreakerProvider, MarketHoursProvider
 
 _provider = None
 
@@ -31,12 +30,13 @@ def build_symbol_context(db) -> dict[str, dict]:
 def get_provider(db):
     global _provider
     if _provider is None:
-
-            seed_data = build_symbol_context(db)        
-            _provider = CircuitBreakerProvider(
+        seed_data = build_symbol_context(db)
+        during_market_hours = CircuitBreakerProvider(
             primary=YFinanceProvider(),
             fallback=SimulatedProvider(seed_data=seed_data),
         )
+        outside_market_hours = SimulatedProvider(seed_data=seed_data)
+        _provider = MarketHoursProvider(during_market_hours, outside_market_hours)
     return _provider
 
 
@@ -47,7 +47,6 @@ def run_ingest():
         symbols = db.query(Symbol).all()
         ticker_to_id = {s.ticker: s.id for s in symbols}
         quotes = provider.fetch_quotes(list(ticker_to_id.keys()))
-
         for q in quotes:
             stmt = pg_insert(PriceTick).values(
                 symbol_id=ticker_to_id[q.ticker],
@@ -57,7 +56,6 @@ def run_ingest():
                 source=q.source,
             ).on_conflict_do_nothing(index_elements=["symbol_id", "ts"])
             db.execute(stmt)
-
         db.commit()
     finally:
         db.close()

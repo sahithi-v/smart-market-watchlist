@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 
 from app.db import get_db
-from app.digest import build_digest
+from app.digest import build_digest, get_detector_affinities
 from app.models import Symbol, User, WatchlistItem, PriceTick, UserSettings
 from app.signals.presets import PRESETS, DEFAULT_SENSITIVITY
 
@@ -46,6 +46,30 @@ def _format_digest_items(items: list[dict], now: datetime) -> list[dict]:
     return formatted
 
 
+def _get_latest_sources(db, tickers: list[str]) -> dict[str, str]:
+    sources = {}
+    for ticker in tickers:
+        symbol = db.query(Symbol).filter_by(ticker=ticker).first()
+        if not symbol:
+            continue
+        tick = (
+            db.query(PriceTick).filter_by(symbol_id=symbol.id)
+            .order_by(PriceTick.ts.desc()).first()
+        )
+        if tick:
+            sources[ticker] = tick.source
+    return sources
+
+
+def _format_affinities(affinities: dict[str, float]) -> list[dict]:
+    rows = [
+        {"detector": d, "label": d.replace("_", " ").title(), "affinity": round(a, 2)}
+        for d, a in affinities.items()
+    ]
+    rows.sort(key=lambda r: r["affinity"])
+    return rows
+
+
 @router.get("/login")
 def login_page(request: Request):
     return templates.TemplateResponse(request, "login.html", {})
@@ -73,9 +97,20 @@ def dashboard_page(
         for w, s in watchlist_rows
     ]
 
+    watched_symbol_ids = {s.id for _, s in watchlist_rows}
+    all_symbols = db.query(Symbol).order_by(Symbol.ticker).all()
+    available_symbols = [
+        {"ticker": s.ticker, "name": s.name}
+        for s in all_symbols if s.id not in watched_symbol_ids
+    ]
+
     now = datetime.now(timezone.utc)
     digest_result = build_digest(db, user, now)
     digest_items = _format_digest_items(digest_result["items"], now)
+
+    sources = _get_latest_sources(db, [item["ticker"] for item in digest_items])
+    for item in digest_items:
+        item["is_simulated"] = sources.get(item["ticker"]) == "simulated"
 
     latest_tick_ts = (
         db.query(func.max(PriceTick.ts))
@@ -85,14 +120,19 @@ def dashboard_page(
     )
     data_freshness = _time_ago(latest_tick_ts.isoformat(), now) if latest_tick_ts else None
 
+    raw_affinities = get_detector_affinities(db, user.id)
+    detector_affinities = _format_affinities(raw_affinities)
+
     return templates.TemplateResponse(
         request, "dashboard.html",
         {
             "user": user, "watchlist": watchlist,
+            "available_symbols": available_symbols,
             "digest_items": digest_items,
             "other_count": digest_result["other_count"],
             "empty_reason": digest_result["empty_reason"],
             "data_freshness": data_freshness,
+            "detector_affinities": detector_affinities,
         },
     )
 

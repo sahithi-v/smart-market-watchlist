@@ -85,3 +85,9 @@ DECISIONS.md entry: Verified /api/news/{ticker} against live NewsAPI.org — rea
 DECISIONS.md entry: Added a global "Prices as of Xm ago" indicator on the dashboard, distinct from each digest card's own event timestamp — directly answers the brief's "how do you handle stale data" requirement by surfacing data freshness explicitly, not just implicitly through per-event timestamps.
 
 DECISIONS.md entry: get_unseen_events was missing a filter on UserEventState.dismissed_at — dismissed events had no mechanism preventing them from reappearing in future digests indefinitely. Fixed with a left join excluding rows where dismissed_at is set; this was a real correctness gap, found while wiring the frontend dismiss button, not by inspection alone.
+
+DECISIONS.md entry: Added MarketHoursProvider, checking NSE hours (9:15–15:30 IST, Mon–Fri, fixed UTC+5:30 offset — IST has no DST, so no zoneinfo/tzdata dependency needed) — routes directly to SimulatedProvider outside those hours, since a successful-but-stale real fetch never trips the existing failure-count circuit breaker. Public holidays are not modeled — a named simplification; a closed-market holiday still attempts real data, tolerated the same way any other stale close already is.
+
+DECISIONS.md entry: app/backfill_daily_bars.py fetches real historical daily bars via yfinance for every symbol in the DB, not just the 5 manually seeded earlier — extends real seed data to the full watchlist-addable universe without fabricating anything.
+
+DECISIONS.md entry: Digest cards show a small "Simulated" tag when the latest price tick's source is "simulated" — reuses existing ingest data, no new tracking, keeps real vs. synthetic data honestly distinguishable rather than hidden.

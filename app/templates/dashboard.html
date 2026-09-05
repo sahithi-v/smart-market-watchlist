@@ -4,9 +4,17 @@
 {% block content %}
 <div id="layout" class="min-h-screen grid transition-all duration-300" style="grid-template-columns: 272px 1fr 0px;">
 
-  <aside class="border-r border-fog bg-chalk p-4 overflow-hidden">
+  <aside class="border-r border-fog bg-chalk p-4 overflow-hidden flex flex-col">
+    <p class="text-xs text-slatemoss uppercase tracking-wide">{{ user.name }}</p>
     <h2 class="font-display text-lg text-ink mb-4">Watchlist</h2>
-    <ul id="watchlist-list" class="space-y-1">
+
+    {% if watchlist|length == 0 %}
+    <div class="border-2 border-dashed border-fog rounded-sm p-4 text-center mb-3">
+      <p class="text-ink text-sm font-medium mb-1">Create your watchlist</p>
+      <p class="text-slatemoss text-xs">Pick a stock below to start tracking it.</p>
+    </div>
+    {% else %}
+    <ul id="watchlist-list" class="space-y-1 mb-3">
       {% for item in watchlist %}
       <li class="flex items-center justify-between py-2 border-b border-fog"
           data-id="{{ item.id }}" data-version="{{ item.version }}" data-pinned="{{ 'true' if item.pinned else 'false' }}">
@@ -21,17 +29,38 @@
             class="text-xs text-slatemoss hover:text-oxblood" title="Remove">✕</button>
         </span>
       </li>
-      {% else %}
-      <li class="text-slatemoss text-sm">No symbols yet.</li>
       {% endfor %}
     </ul>
+    {% endif %}
 
-    <form onsubmit="addSymbol(event)" class="mt-4 flex gap-2">
-      <input type="text" id="add-symbol-input" placeholder="e.g. TCS" required
-        class="flex-1 border border-fog rounded-sm px-2 py-1.5 text-sm bg-mist focus:outline-none focus:border-deepmoss uppercase">
-      <button type="submit" class="bg-deepmoss text-chalk text-sm px-3 rounded-sm hover:opacity-90">Add</button>
+    <form onsubmit="addSymbol(event)" class="flex gap-2 min-w-0">
+      <select id="add-symbol-select" required
+        class="flex-1 min-w-0 truncate border border-fog rounded-sm px-2 py-1.5 text-sm bg-mist focus:outline-none focus:border-deepmoss">
+        <option value="">Select a stock…</option>
+        {% for s in available_symbols %}
+        <option value="{{ s.ticker }}">{{ s.ticker }} — {{ s.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="shrink-0 bg-deepmoss text-chalk text-sm px-3 rounded-sm hover:opacity-90">Add</button>
     </form>
     <p id="add-symbol-error" class="hidden text-oxblood text-xs mt-2"></p>
+
+    <div class="mt-6 pt-4 border-t border-fog">
+      <h3 class="text-xs text-slatemoss uppercase tracking-wide mb-2">Your patterns</h3>
+      {% if detector_affinities|length == 0 %}
+      <p class="text-slatemoss text-xs">Still learning your preferences — this fills in as you dismiss or open alerts.</p>
+      {% else %}
+      <div class="space-y-1.5">
+        {% for row in detector_affinities %}
+        <div class="flex items-center justify-between">
+          <span class="text-ink text-xs">{{ row.label }}</span>
+          <span class="font-mono text-xs {{ 'text-oxblood' if row.affinity < 0.7 else 'text-slatemoss' }}">{{ row.affinity }}×</span>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="text-slatemoss text-[10px] mt-2">Lower means you tend to dismiss these — we show you fewer.</p>
+      {% endif %}
+    </div>
   </aside>
 
   <main class="p-8 overflow-hidden">
@@ -67,10 +96,13 @@
              data-item='{{ item|tojson }}' data-rank="{{ loop.index }}" data-pinned="{{ 'true' if item.pinned else 'false' }}"
              onclick="openDrawer(this)">
           <div class="flex items-baseline justify-between">
-            <span class="font-display text-lg text-ink">{{ item.ticker }}</span>
+            <span class="font-display text-lg text-ink">
+              {{ item.ticker }}
+              {% if item.is_simulated %}<span class="text-[10px] uppercase tracking-wide text-slatemoss bg-mist border border-fog rounded-sm px-1.5 py-0.5 ml-2 align-middle">Simulated</span>{% endif %}
+            </span>
             <span class="flex items-center gap-3">
               <span class="font-mono text-sm text-ink">{{ item.sigma }}σ</span>
-              <button onclick="event.stopPropagation(); dismissEvent({{ item.event_id }})"
+              <button onclick="event.stopPropagation(); dismissEvent({{ item.event_id }}, '{{ item.detector }}')"
                 class="text-slatemoss hover:text-oxblood text-xs" title="Dismiss">✕</button>
             </span>
           </div>
@@ -117,6 +149,14 @@
 </div>
 
 <script>
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#16211E;color:#FBFBF9;padding:10px 18px;border-radius:4px;font-size:13px;z-index:9999;max-width:320px;text-align:center;';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 1300);
+  }
+
   function filterDigest(which) {
     document.querySelectorAll('#layout main [data-pinned]').forEach(card => {
       const show = which === 'all' || card.dataset.pinned === 'true';
@@ -132,11 +172,13 @@
     document.getElementById('tab-important').classList.toggle('border-transparent', which !== 'important');
   }
 
-  async function dismissEvent(eventId) {
+  async function dismissEvent(eventId, detector) {
     try {
       const res = await fetch(`/api/events/${eventId}/dismiss`, { method: 'POST' });
       if (res.status === 204 || res.status === 404) {
-        location.reload();
+        const label = detector.replace('_', ' ').toLowerCase();
+        showToast(`Dismissed — we'll weigh ${label} alerts like this less for you.`);
+        setTimeout(() => location.reload(), 1200);
       } else {
         alert('Could not dismiss — please try again.');
       }
@@ -147,10 +189,15 @@
 
   async function addSymbol(event) {
     event.preventDefault();
-    const input = document.getElementById('add-symbol-input');
+    const select = document.getElementById('add-symbol-select');
     const errorEl = document.getElementById('add-symbol-error');
-    const ticker = input.value.trim().toUpperCase();
+    const ticker = select.value;
     errorEl.classList.add('hidden');
+    if (!ticker) {
+      errorEl.textContent = 'Please select a stock.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
     try {
       const res = await fetch('/api/watchlist', {
         method: 'POST',
@@ -158,7 +205,6 @@
         body: JSON.stringify({ ticker })
       });
       if (res.ok) {
-        input.value = '';
         location.reload();
       } else {
         const data = await res.json();
@@ -215,51 +261,18 @@
     document.getElementById('layout').style.gridTemplateColumns = '272px 1fr 0px';
   }
 
-  function checkEmptyState() {
-    const list = document.getElementById('watchlist-list');
-    if (list.querySelectorAll('li[data-id]').length === 0) {
-      list.innerHTML = '<li class="text-slatemoss text-sm">No symbols yet.</li>';
-    }
-  }
-
   async function removeItem(id) {
     if (!confirm('Remove this symbol from your watchlist?')) return;
-    const li = document.querySelector(`li[data-id="${id}"]`);
     try {
       const res = await fetch(`/api/watchlist/${id}`, { method: 'DELETE' });
       if (res.status === 204 || res.status === 404) {
-        li?.remove();
-        checkEmptyState();
+        location.reload();
       } else {
         alert('Could not remove — please try again.');
       }
     } catch (e) {
       alert('Network error — please try again.');
     }
-  }
-
-  function renderItemHtml(item) {
-    const pinClass = item.pinned ? 'text-brass' : 'text-fog hover:text-brass';
-    const pinTitle = item.pinned ? 'Unpin' : 'Pin';
-    return `<li class="flex items-center justify-between py-2 border-b border-fog"
-      data-id="${item.id}" data-version="${item.version}" data-pinned="${item.pinned}">
-      <span class="text-ink text-sm font-medium truncate" title="${item.name}">${item.ticker}</span>
-      <span class="flex items-center gap-2">
-        <button onclick="pinItem(${item.id})" class="${pinClass}" title="${pinTitle}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 3a1 1 0 0 1 1 1v6.5l3 3.5v2H13v5l-1 1-1-1v-5H4v-2l3-3.5V4a1 1 0 0 1 1-1h8z"/></svg>
-        </button>
-        <button onclick="removeItem(${item.id})" class="text-xs text-slatemoss hover:text-oxblood" title="Remove">✕</button>
-      </span></li>`;
-  }
-
-  async function refreshWatchlist() {
-    const res = await fetch('/api/watchlist');
-    if (!res.ok) return;
-    const items = await res.json();
-    const list = document.getElementById('watchlist-list');
-    list.innerHTML = items.length === 0
-      ? '<li class="text-slatemoss text-sm">No symbols yet.</li>'
-      : items.map(renderItemHtml).join('');
   }
 
   async function pinItem(id) {
@@ -273,13 +286,10 @@
         body: JSON.stringify({ pinned: !currentlyPinned, version })
       });
       if (res.status === 409) {
-        alert('This item changed elsewhere — refreshing your watchlist.');
-        await refreshWatchlist();
-      } else if (res.status === 404) {
-        li.remove();
-        checkEmptyState();
-      } else if (res.ok) {
-        await refreshWatchlist();
+        alert('This item changed elsewhere — refreshing.');
+        location.reload();
+      } else if (res.ok || res.status === 404) {
+        location.reload();
       } else {
         alert('Could not update — please try again.');
       }
