@@ -91,3 +91,9 @@ DECISIONS.md entry: Added MarketHoursProvider, checking NSE hours (9:15–15:30 
 DECISIONS.md entry: app/backfill_daily_bars.py fetches real historical daily bars via yfinance for every symbol in the DB, not just the 5 manually seeded earlier — extends real seed data to the full watchlist-addable universe without fabricating anything.
 
 DECISIONS.md entry: Digest cards show a small "Simulated" tag when the latest price tick's source is "simulated" — reuses existing ingest data, no new tracking, keeps real vs. synthetic data honestly distinguishable rather than hidden.
+
+DECISIONS.md entry: Added get_detector_affinity_details alongside the existing get_detector_affinities — display-only, returns raw shown/dismissed counts for the "Your patterns" explanation, without changing the tested scoring function's return shape.
+
+DECISIONS.md entry: User menu (avatar initial → dropdown with name/email/logout) calls the existing, already-tested POST /api/auth/logout — no new backend endpoint. Affinity explanations are computed server-side in Python (_explain_affinity), not duplicated in JS, so there's one place the cold-start/floor logic can be read and verified.
+
+DECISIONS.md entry: idempotency_keys table remains schema-only, unused — every write endpoint achieves real idempotency via natural unique constraints (ON CONFLICT DO NOTHING/DO UPDATE on (user_id, symbol_id), (user_id, event_id), dedupe_key), not a generic key-based mechanism. One caveat named honestly: a retried request can get a different status code than the original (e.g., 400 "already exists" instead of 201, 404 instead of 204) even though the underlying data state never duplicates or corrupts — a true idempotency-key cache would replay the exact original response, which we don't do. The generic table is reserved for a future endpoint that lacks a natural conflict key, not needed for anything currently built.

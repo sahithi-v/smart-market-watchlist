@@ -42,6 +42,30 @@ def get_detector_affinities(db, user_id: int) -> dict[str, float]:
     return {detector: compute_affinity(shown, dismissed) for detector, shown, dismissed in rows}
 
 
+def get_detector_affinity_details(db, user_id: int) -> list[dict]:
+    """Same underlying query as get_detector_affinities, but returns raw
+    shown/dismissed counts alongside the computed affinity — used only
+    for display (the 'Your patterns' widget explanation), not scoring."""
+    rows = (
+        db.query(
+            Event.detector,
+            func.count(UserEventState.event_id).label("shown_count"),
+            func.count(UserEventState.dismissed_at).label("dismissed_count"),
+        )
+        .join(UserEventState, UserEventState.event_id == Event.id)
+        .filter(UserEventState.user_id == user_id, UserEventState.shown_at.isnot(None))
+        .group_by(Event.detector)
+        .all()
+    )
+    return [
+        {
+            "detector": detector, "shown": shown, "dismissed": dismissed,
+            "affinity": compute_affinity(shown, dismissed),
+        }
+        for detector, shown, dismissed in rows
+    ]
+
+
 def get_unseen_events(db, user_id: int) -> list[dict]:
     rows = (
         db.query(Event, Symbol, WatchlistItem)
@@ -74,6 +98,7 @@ def get_unseen_events(db, user_id: int) -> list[dict]:
         }
         for event, symbol, item in rows
     ]
+
 
 def get_latest_prices(db, symbol_ids: set[int]) -> dict[int, int]:
     prices = {}

@@ -52,13 +52,15 @@
       {% else %}
       <div class="space-y-1.5">
         {% for row in detector_affinities %}
-        <div class="flex items-center justify-between">
-          <span class="text-ink text-xs">{{ row.label }}</span>
-          <span class="font-mono text-xs {{ 'text-oxblood' if row.affinity < 0.7 else 'text-slatemoss' }}">{{ row.affinity }}×</span>
+        <div>
+          <button onclick="toggleExplain('explain-{{ loop.index }}')" class="w-full flex items-center justify-between text-left">
+            <span class="text-ink text-xs">{{ row.label }}</span>
+            <span class="font-mono text-xs {{ 'text-oxblood' if row.affinity < 0.7 else 'text-slatemoss' }}">{{ row.affinity }}×</span>
+          </button>
+          <p id="explain-{{ loop.index }}" class="hidden text-slatemoss text-[10px] mt-1 pl-2 border-l border-fog">{{ row.explanation }}</p>
         </div>
         {% endfor %}
       </div>
-      <p class="text-slatemoss text-[10px] mt-2">Lower means you tend to dismiss these — we show you fewer.</p>
       {% endif %}
     </div>
   </aside>
@@ -67,7 +69,19 @@
     <div class="max-w-2xl">
         <div class="flex items-center justify-between mb-1">
             <h1 class="font-display text-2xl text-ink">Today</h1>
-            <a href="/settings" class="text-slatemoss text-sm hover:text-ink">Settings</a>
+            <div class="flex items-center gap-4 relative">
+              <a href="/settings" class="text-slatemoss text-sm hover:text-ink">Settings</a>
+              <button onclick="toggleUserMenu()" class="w-8 h-8 rounded-full bg-deepmoss text-chalk text-sm font-medium flex items-center justify-center hover:opacity-90">
+                {{ user.name[0]|upper }}
+              </button>
+              <div id="user-menu" class="hidden absolute right-0 top-10 bg-chalk border border-fog rounded-sm shadow-sm min-w-[160px] z-10">
+                <div class="px-3 py-2 border-b border-fog">
+                  <p class="text-ink text-sm font-medium truncate">{{ user.name }}</p>
+                  <p class="text-slatemoss text-xs truncate">{{ user.email }}</p>
+                </div>
+                <button onclick="logout()" class="w-full text-left px-3 py-2 text-sm text-oxblood hover:bg-mist">Log out</button>
+              </div>
+            </div>
         </div>
       <p class="text-slatemoss text-sm mb-6">
         {{ digest_items|length }} item{{ 's' if digest_items|length != 1 }}
@@ -149,6 +163,29 @@
 </div>
 
 <script>
+  function toggleUserMenu() {
+    document.getElementById('user-menu').classList.toggle('hidden');
+  }
+
+  document.addEventListener('click', function(e) {
+    const menu = document.getElementById('user-menu');
+    const btn = e.target.closest('button[onclick="toggleUserMenu()"]');
+    if (!btn && !menu.contains(e.target)) menu.classList.add('hidden');
+  });
+
+  async function logout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    } catch (e) {
+      window.location.href = '/login';
+    }
+  }
+
+  function toggleExplain(id) {
+    document.getElementById(id).classList.toggle('hidden');
+  }
+
   function showToast(message) {
     const toast = document.createElement('div');
     toast.textContent = message;

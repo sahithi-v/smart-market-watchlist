@@ -6,12 +6,15 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
 
 from app.db import get_db
-from app.digest import build_digest, get_detector_affinities
+from app.digest import build_digest, get_detector_affinity_details
 from app.models import Symbol, User, WatchlistItem, PriceTick, UserSettings
 from app.signals.presets import PRESETS, DEFAULT_SENSITIVITY
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+AFFINITY_COLD_START_MIN_SHOWN = 5
+AFFINITY_FLOOR = 0.3
 
 
 def get_current_user_optional(request: Request, db=Depends(get_db)):
@@ -61,10 +64,29 @@ def _get_latest_sources(db, tickers: list[str]) -> dict[str, str]:
     return sources
 
 
-def _format_affinities(affinities: dict[str, float]) -> list[dict]:
+def _explain_affinity(shown: int, dismissed: int, affinity: float) -> str:
+    if shown < AFFINITY_COLD_START_MIN_SHOWN:
+        return (
+            f"Shown {shown} time{'s' if shown != 1 else ''} so far — "
+            f"needs at least {AFFINITY_COLD_START_MIN_SHOWN} before we adjust anything."
+        )
+    return (
+        f"Shown {shown} times, dismissed {dismissed} — weighted to {affinity:.2f}× "
+        f"(never below {AFFINITY_FLOOR:.2f}×, so it never disappears entirely)."
+    )
+
+
+def _format_affinities(details: list[dict]) -> list[dict]:
     rows = [
-        {"detector": d, "label": d.replace("_", " ").title(), "affinity": round(a, 2)}
-        for d, a in affinities.items()
+        {
+            "detector": d["detector"],
+            "label": d["detector"].replace("_", " ").title(),
+            "affinity": round(d["affinity"], 2),
+            "shown": d["shown"],
+            "dismissed": d["dismissed"],
+            "explanation": _explain_affinity(d["shown"], d["dismissed"], d["affinity"]),
+        }
+        for d in details
     ]
     rows.sort(key=lambda r: r["affinity"])
     return rows
@@ -120,8 +142,8 @@ def dashboard_page(
     )
     data_freshness = _time_ago(latest_tick_ts.isoformat(), now) if latest_tick_ts else None
 
-    raw_affinities = get_detector_affinities(db, user.id)
-    detector_affinities = _format_affinities(raw_affinities)
+    affinity_details = get_detector_affinity_details(db, user.id)
+    detector_affinities = _format_affinities(affinity_details)
 
     return templates.TemplateResponse(
         request, "dashboard.html",
