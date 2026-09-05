@@ -158,6 +158,9 @@ def dashboard_page(
         },
     )
 
+@router.get("/")
+def root():
+    return RedirectResponse(url="/login")
 
 @router.get("/settings")
 def settings_page(
