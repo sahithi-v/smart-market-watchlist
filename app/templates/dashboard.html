@@ -2,6 +2,27 @@
 {% block title %}Dashboard — Smart Watchlist{% endblock %}
 
 {% block content %}
+<style>
+  @media (max-width: 767px) {
+    #layout {
+      grid-template-columns: 1fr !important;
+      display: block !important;
+    }
+    #drawer {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      width: 100% !important;
+    }
+    #drawer.mobile-open {
+      display: block;
+    }
+    #drawer .w-\[360px\] {
+      width: 100% !important;
+    }
+  }
+</style>
 <div id="layout" class="min-h-screen grid transition-all duration-300" style="grid-template-columns: 272px 1fr 0px;">
 
   <aside class="border-r border-fog bg-chalk p-4 overflow-hidden flex flex-col">
@@ -273,6 +294,7 @@
     }
 
     document.getElementById('layout').style.gridTemplateColumns = '272px 1fr 360px';
+    document.getElementById('drawer').classList.add('mobile-open');
     loadNews(item.ticker);
   }
 
@@ -296,6 +318,7 @@
 
   function closeDrawer() {
     document.getElementById('layout').style.gridTemplateColumns = '272px 1fr 0px';
+    document.getElementById('drawer').classList.remove('mobile-open');
   }
 
   async function removeItem(id) {
