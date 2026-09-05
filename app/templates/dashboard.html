@@ -25,14 +25,15 @@
 </style>
 <div id="layout" class="min-h-screen grid transition-all duration-300" style="grid-template-columns: 272px 1fr 0px;">
 
-  <aside class="border-r border-fog bg-chalk p-4 overflow-hidden flex flex-col">
+    <aside class="border-r border-fog bg-chalk p-4 overflow-hidden flex flex-col">
+    <img src="/static/Groww_app_logo.png" alt="Groww" style="height: 20px; width: auto;" class="mb-3 opacity-70">
     <p class="text-xs text-slatemoss uppercase tracking-wide">{{ user.name }}</p>
     <h2 class="font-display text-lg text-ink mb-4">Watchlist</h2>
 
     {% if watchlist|length == 0 %}
     <div class="border-2 border-dashed border-fog rounded-sm p-4 text-center mb-3">
       <p class="text-ink text-sm font-medium mb-1">Create your watchlist</p>
-      <p class="text-slatemoss text-xs">Pick a stock below to start tracking it.</p>
+      <p class="text-slatemoss text-xs">Search for a stock below to start tracking it.</p>
     </div>
     {% else %}
     <ul id="watchlist-list" class="space-y-1 mb-3">
@@ -54,16 +55,13 @@
     </ul>
     {% endif %}
 
-    <form onsubmit="addSymbol(event)" class="flex gap-2 min-w-0">
-      <select id="add-symbol-select" required
-        class="flex-1 min-w-0 truncate border border-fog rounded-sm px-2 py-1.5 text-sm bg-mist focus:outline-none focus:border-deepmoss">
-        <option value="">Select a stock…</option>
-        {% for s in available_symbols %}
-        <option value="{{ s.ticker }}">{{ s.ticker }} — {{ s.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="shrink-0 bg-deepmoss text-chalk text-sm px-3 rounded-sm hover:opacity-90">Add</button>
-    </form>
+    <div class="relative">
+      <input type="text" id="stock-search" placeholder="Search e.g. INFY"
+        autocomplete="off"
+        oninput="filterStockSearch()" onfocus="filterStockSearch()"
+        class="w-full border border-fog rounded-sm px-2 py-1.5 text-sm bg-mist focus:outline-none focus:border-deepmoss">
+      <div id="stock-search-results" class="hidden absolute z-20 top-full left-0 right-0 bg-chalk border border-fog border-t-0 rounded-b-sm max-h-48 overflow-y-auto"></div>
+    </div>
     <p id="add-symbol-error" class="hidden text-oxblood text-xs mt-2"></p>
 
     <div class="mt-6 pt-4 border-t border-fog">
@@ -91,7 +89,12 @@
         <div class="flex items-center justify-between mb-1">
             <h1 class="font-display text-2xl text-ink">Today</h1>
             <div class="flex items-center gap-4 relative">
-              <a href="/settings" class="text-slatemoss text-sm hover:text-ink">Settings</a>
+                <a href="/settings" class="text-slatemoss hover:text-ink" title="Settings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </a>
               <button onclick="toggleUserMenu()" class="w-8 h-8 rounded-full bg-deepmoss text-chalk text-sm font-medium flex items-center justify-center hover:opacity-90">
                 {{ user.name[0]|upper }}
               </button>
@@ -136,7 +139,7 @@
               {% if item.is_simulated %}<span class="text-[10px] uppercase tracking-wide text-slatemoss bg-mist border border-fog rounded-sm px-1.5 py-0.5 ml-2 align-middle">Simulated</span>{% endif %}
             </span>
             <span class="flex items-center gap-3">
-              <span class="font-mono text-sm text-ink">{{ item.sigma }}σ</span>
+              <span class="font-mono text-sm text-ink">{{ item.sigma }}{{ '×' if item.detector == 'VOLUME_SPIKE' else 'σ' }}</span>
               <button onclick="event.stopPropagation(); dismissEvent({{ item.event_id }}, '{{ item.detector }}')"
                 class="text-slatemoss hover:text-oxblood text-xs" title="Dismiss">✕</button>
             </span>
@@ -184,6 +187,72 @@
 </div>
 
 <script>
+  const AVAILABLE_SYMBOLS = {{ available_symbols|tojson }};
+
+  function filterStockSearch() {
+    const input = document.getElementById('stock-search');
+    const resultsEl = document.getElementById('stock-search-results');
+    const query = input.value.trim().toUpperCase();
+
+    if (!query) {
+      resultsEl.classList.add('hidden');
+      resultsEl.innerHTML = '';
+      return;
+    }
+
+    const matches = AVAILABLE_SYMBOLS.filter(s =>
+      s.ticker.includes(query) || s.name.toUpperCase().includes(query)
+    ).slice(0, 6);
+
+    if (matches.length === 0) {
+      resultsEl.innerHTML = '<div class="px-2 py-2 text-xs text-slatemoss">No matching stocks.</div>';
+    } else {
+      resultsEl.innerHTML = matches.map(s =>
+        `<button onclick="selectStock('${s.ticker}')" class="w-full text-left px-2 py-1.5 text-sm hover:bg-mist border-b border-fog last:border-b-0">
+          <span class="font-medium text-ink">${s.ticker}</span>
+          <span class="text-slatemoss text-xs block truncate">${s.name}</span>
+        </button>`
+      ).join('');
+    }
+    resultsEl.classList.remove('hidden');
+  }
+
+  function selectStock(ticker) {
+    document.getElementById('stock-search-results').classList.add('hidden');
+    addSymbol(ticker);
+  }
+
+  document.addEventListener('click', function(e) {
+    const wrapper = document.getElementById('stock-search');
+    const results = document.getElementById('stock-search-results');
+    if (!wrapper.contains(e.target) && !results.contains(e.target)) {
+      results.classList.add('hidden');
+    }
+  });
+
+  async function addSymbol(ticker) {
+    const errorEl = document.getElementById('add-symbol-error');
+    errorEl.classList.add('hidden');
+    try {
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker })
+      });
+      if (res.ok) {
+        showToast(`Added ${ticker} to your watchlist.`);
+        setTimeout(() => location.reload(), 900);
+      } else {
+        const data = await res.json();
+        errorEl.textContent = data.detail || 'Could not add symbol.';
+        errorEl.classList.remove('hidden');
+      }
+    } catch (e) {
+      errorEl.textContent = 'Network error — please try again.';
+      errorEl.classList.remove('hidden');
+    }
+  }
+
   function toggleUserMenu() {
     document.getElementById('user-menu').classList.toggle('hidden');
   }
@@ -242,36 +311,6 @@
       }
     } catch (e) {
       alert('Network error — please try again.');
-    }
-  }
-
-  async function addSymbol(event) {
-    event.preventDefault();
-    const select = document.getElementById('add-symbol-select');
-    const errorEl = document.getElementById('add-symbol-error');
-    const ticker = select.value;
-    errorEl.classList.add('hidden');
-    if (!ticker) {
-      errorEl.textContent = 'Please select a stock.';
-      errorEl.classList.remove('hidden');
-      return;
-    }
-    try {
-      const res = await fetch('/api/watchlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker })
-      });
-      if (res.ok) {
-        location.reload();
-      } else {
-        const data = await res.json();
-        errorEl.textContent = data.detail || 'Could not add symbol.';
-        errorEl.classList.remove('hidden');
-      }
-    } catch (e) {
-      errorEl.textContent = 'Network error — please try again.';
-      errorEl.classList.remove('hidden');
     }
   }
 

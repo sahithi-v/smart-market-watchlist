@@ -16,7 +16,7 @@ from app.events import router as events_router
 from app.pages import router as pages_router
 from app.user_settings import router as user_settings_router
 from app.news import router as news_router
-
+from fastapi.staticfiles import StaticFiles
 scheduler = BackgroundScheduler()
 
 
@@ -31,6 +31,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Smart Market Watchlist", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 app.include_router(auth_router)
 app.include_router(watchlist_router)

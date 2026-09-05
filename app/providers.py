@@ -20,6 +20,9 @@ class MarketDataProvider(Protocol):
 
 class SimulatedProvider:
     DEMO_SESSION_TICKS = 20
+    MAX_PRICE_DRIFT = 0.25       # price bounded to ±25% of its real seeded value
+    MIN_VOLUME_MULT = 0.2        # volume bounded to [20%, 800%] of its seeded baseline
+    MAX_VOLUME_MULT = 8.0
 
     def __init__(self, seed: int = 42, seed_data: dict[str, dict] | None = None):
         self._seed = seed
@@ -28,6 +31,8 @@ class SimulatedProvider:
         self._last_price: dict[str, int] = {}
         self._last_volume: dict[str, int] = {}
         self._tick_std: dict[str, float] = {}
+        self._base_price: dict[str, int] = {}
+        self._base_volume: dict[str, int] = {}
 
     def _rng_for(self, ticker: str) -> random.Random:
         if ticker not in self._rngs:
@@ -35,12 +40,16 @@ class SimulatedProvider:
             self._rngs[ticker] = rng
             real = self._seed_data.get(ticker)
             if real:
-                self._last_price[ticker] = real["last_close_paise"]
+                base_price = real["last_close_paise"]
                 self._tick_std[ticker] = real["daily_stddev"] / (self.DEMO_SESSION_TICKS ** 0.5)
             else:
-                self._last_price[ticker] = rng.randint(10_000, 500_000)
+                base_price = rng.randint(10_000, 500_000)
                 self._tick_std[ticker] = 0.004
-            self._last_volume[ticker] = rng.randint(50_000, 500_000)
+            base_volume = rng.randint(50_000, 500_000)
+            self._last_price[ticker] = base_price
+            self._last_volume[ticker] = base_volume
+            self._base_price[ticker] = base_price
+            self._base_volume[ticker] = base_volume
         return self._rngs[ticker]
 
     def fetch_quotes(self, tickers: list[str]) -> list[Quote]:
@@ -48,9 +57,18 @@ class SimulatedProvider:
         quotes = []
         for ticker in tickers:
             rng = self._rng_for(ticker)
+
             ret = rng.gauss(0, self._tick_std[ticker])
             price = max(100, int(self._last_price[ticker] * (1 + ret)))
-            vol = max(1, int(self._last_volume[ticker] * rng.uniform(0.7, 1.4)))
+            price_floor = int(self._base_price[ticker] * (1 - self.MAX_PRICE_DRIFT))
+            price_ceiling = int(self._base_price[ticker] * (1 + self.MAX_PRICE_DRIFT))
+            price = min(max(price, price_floor), price_ceiling)
+
+            vol = max(1, int(self._last_volume[ticker] * rng.uniform(0.8, 1.2)))
+            vol_floor = int(self._base_volume[ticker] * self.MIN_VOLUME_MULT)
+            vol_ceiling = int(self._base_volume[ticker] * self.MAX_VOLUME_MULT)
+            vol = min(max(vol, vol_floor), vol_ceiling)
+
             self._last_price[ticker] = price
             self._last_volume[ticker] = vol
             quotes.append(Quote(ticker, price, vol, now, "simulated"))
@@ -106,10 +124,6 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def is_market_open(now_utc: datetime) -> bool:
-    """NSE regular session: 9:15-15:30 IST, Mon-Fri. Public holidays are
-    NOT modeled — a named simplification; on a holiday we'd still attempt
-    real data, which just returns a stale close, tolerated the same way
-    any other closed-market case already is."""
     ist_now = now_utc.astimezone(IST)
     if ist_now.weekday() >= 5:
         return False
@@ -119,13 +133,6 @@ def is_market_open(now_utc: datetime) -> bool:
 
 
 class MarketHoursProvider:
-    """Outside NSE trading hours, a 'successful' real-time fetch is just
-    a repeated stale last-close — indistinguishable from a genuine flat
-    price to our sigma detectors, and misleading to label 'live'. Skip
-    the real provider entirely and go straight to simulated, rather than
-    relying on CircuitBreakerProvider's failure-count logic, which a
-    successful-but-stale fetch never trips."""
-
     def __init__(self, market_hours_provider, off_hours_provider):
         self._open_provider = market_hours_provider
         self._closed_provider = off_hours_provider
