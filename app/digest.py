@@ -54,8 +54,16 @@ def get_unseen_events(db, user_id: int) -> list[dict]:
                 UserSymbolCursor.user_id == WatchlistItem.user_id,
             ),
         )
+        .outerjoin(
+            UserEventState,
+            and_(
+                UserEventState.event_id == Event.id,
+                UserEventState.user_id == user_id,
+            ),
+        )
         .filter(WatchlistItem.user_id == user_id)
         .filter(Event.ts > UserSymbolCursor.last_seen_event_ts)
+        .filter(UserEventState.dismissed_at.is_(None))
         .all()
     )
     return [
@@ -66,7 +74,6 @@ def get_unseen_events(db, user_id: int) -> list[dict]:
         }
         for event, symbol, item in rows
     ]
-
 
 def get_latest_prices(db, symbol_ids: set[int]) -> dict[int, int]:
     prices = {}

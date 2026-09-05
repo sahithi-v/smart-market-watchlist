@@ -83,3 +83,5 @@ DECISIONS.md entry: Settings page exposes only the sensitivity preset radio (low
 DECISIONS.md entry: Verified /api/news/{ticker} against live NewsAPI.org — real headline returned for RELIANCE, confirming key validity and endpoint wiring before frontend integration.
 
 DECISIONS.md entry: Added a global "Prices as of Xm ago" indicator on the dashboard, distinct from each digest card's own event timestamp — directly answers the brief's "how do you handle stale data" requirement by surfacing data freshness explicitly, not just implicitly through per-event timestamps.
+
+DECISIONS.md entry: get_unseen_events was missing a filter on UserEventState.dismissed_at — dismissed events had no mechanism preventing them from reappearing in future digests indefinitely. Fixed with a left join excluding rows where dismissed_at is set; this was a real correctness gap, found while wiring the frontend dismiss button, not by inspection alone.

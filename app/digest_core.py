@@ -61,6 +61,7 @@ def _explain(e: dict) -> str:
 def _format_item(e: dict, current_price_paise: int | None, naive_rank: int | None) -> dict:
     return {
         "event_id": e["event_id"], "ticker": e["ticker"], "name": e["name"],
+        "pinned": e.get("pinned", False),
         "detector": e["detector"], "sigma": round(e["sigma"], 2),
         "current_price_paise": current_price_paise, "explanation": _explain(e),
         "ts": e["ts"].isoformat(),

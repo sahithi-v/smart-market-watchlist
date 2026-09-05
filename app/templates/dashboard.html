@@ -44,6 +44,7 @@
         {{ digest_items|length }} item{{ 's' if digest_items|length != 1 }}
         {% if data_freshness %} · Prices as of {{ data_freshness }}{% endif %}
       </p>
+
       {% if empty_reason == "no_watchlist" %}
       <div class="bg-chalk border border-fog rounded-sm p-6 text-center">
         <p class="text-ink text-sm">Add a symbol to your watchlist to start seeing your digest.</p>
@@ -54,14 +55,24 @@
         <p class="text-slatemoss text-xs mt-1">We'll surface something when it actually matters.</p>
       </div>
       {% else %}
+      {% if digest_items|length > 0 %}
+      <div class="flex gap-4 mb-4">
+        <button id="tab-all" onclick="filterDigest('all')" class="text-sm font-medium text-ink border-b-2 border-deepmoss pb-1">All</button>
+        <button id="tab-important" onclick="filterDigest('important')" class="text-sm font-medium text-slatemoss border-b-2 border-transparent pb-1">Important</button>
+      </div>
+      {% endif %}
       <div class="space-y-3">
         {% for item in digest_items %}
         <div class="bg-chalk border border-fog {{ 'border-l-2 border-l-deepmoss' if loop.first }} rounded-sm p-4 cursor-pointer hover:border-slatemoss"
-             data-item='{{ item|tojson }}' data-rank="{{ loop.index }}"
+             data-item='{{ item|tojson }}' data-rank="{{ loop.index }}" data-pinned="{{ 'true' if item.pinned else 'false' }}"
              onclick="openDrawer(this)">
           <div class="flex items-baseline justify-between">
             <span class="font-display text-lg text-ink">{{ item.ticker }}</span>
-            <span class="font-mono text-sm text-ink">{{ item.sigma }}σ</span>
+            <span class="flex items-center gap-3">
+              <span class="font-mono text-sm text-ink">{{ item.sigma }}σ</span>
+              <button onclick="event.stopPropagation(); dismissEvent({{ item.event_id }})"
+                class="text-slatemoss hover:text-oxblood text-xs" title="Dismiss">✕</button>
+            </span>
           </div>
           <p class="text-ink text-sm mt-1">{{ item.explanation }}</p>
           <div class="flex items-baseline justify-between mt-2">
@@ -106,6 +117,34 @@
 </div>
 
 <script>
+  function filterDigest(which) {
+    document.querySelectorAll('#layout main [data-pinned]').forEach(card => {
+      const show = which === 'all' || card.dataset.pinned === 'true';
+      card.style.display = show ? '' : 'none';
+    });
+    document.getElementById('tab-all').classList.toggle('text-ink', which === 'all');
+    document.getElementById('tab-all').classList.toggle('border-deepmoss', which === 'all');
+    document.getElementById('tab-all').classList.toggle('text-slatemoss', which !== 'all');
+    document.getElementById('tab-all').classList.toggle('border-transparent', which !== 'all');
+    document.getElementById('tab-important').classList.toggle('text-ink', which === 'important');
+    document.getElementById('tab-important').classList.toggle('border-deepmoss', which === 'important');
+    document.getElementById('tab-important').classList.toggle('text-slatemoss', which !== 'important');
+    document.getElementById('tab-important').classList.toggle('border-transparent', which !== 'important');
+  }
+
+  async function dismissEvent(eventId) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/dismiss`, { method: 'POST' });
+      if (res.status === 204 || res.status === 404) {
+        location.reload();
+      } else {
+        alert('Could not dismiss — please try again.');
+      }
+    } catch (e) {
+      alert('Network error — please try again.');
+    }
+  }
+
   async function addSymbol(event) {
     event.preventDefault();
     const input = document.getElementById('add-symbol-input');
