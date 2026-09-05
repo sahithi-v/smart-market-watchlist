@@ -31,7 +31,7 @@ def test_empty_raw_events_is_quiet():
 def test_below_threshold_filtered_out():
     events = [_sigma_e(1, 1, "INFY", NOW, 1.2)]
     result = assemble_digest(events, SIGMA_THRESHOLDS, ALL_DETECTORS, NOW, {})
-    assert result["items"] == [] and result["empty_reason"] is None
+    assert result["items"] == [] and result["empty_reason"] == "quiet"
 
 
 def test_disabled_detector_excluded_even_if_magnitude_qualifies():
@@ -56,6 +56,8 @@ def test_caps_at_five_and_counts_the_rest():
     events = [_sigma_e(i, i, f"SYM{i}", NOW, 2.0 + i * 0.1) for i in range(7)]
     result = assemble_digest(events, SIGMA_THRESHOLDS, ALL_DETECTORS, NOW, {})
     assert len(result["items"]) == 5 and result["other_count"] == 2
+
+
 def test_low_affinity_detector_ranks_below_high_affinity_one():
     events = [_sigma_e(1, 1, "INFY", NOW, 2.0), _vol_e(2, 2, "TCS", NOW, 2.0)]
     result = assemble_digest(

@@ -36,14 +36,11 @@ def assemble_digest(
     top = scored[:MAX_DIGEST_ITEMS]
     other_count = max(0, len(scored) - len(top))
 
-    # Naive comparison: same candidate pool, sorted by raw magnitude alone,
-    # no recency/pin/affinity weighting — this is the "obvious" approach
-    # the drawer contrasts against.
     naive_order = sorted(collapsed, key=lambda e: abs(e["sigma"]), reverse=True)
     naive_rank = {e["event_id"]: i + 1 for i, e in enumerate(naive_order)}
 
     items = [_format_item(e, latest_prices.get(e["symbol_id"]), naive_rank.get(e["event_id"])) for e in top]
-    empty_reason = "quiet" if not raw_events else None
+    empty_reason = "quiet" if not items else None
     return {"items": items, "other_count": other_count, "empty_reason": empty_reason}
 
 
